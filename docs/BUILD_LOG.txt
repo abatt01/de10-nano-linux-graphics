@@ -1,0 +1,24 @@
+Native build on DE10-Nano Linux 3.18.0
+
+root@de10nanolinux:~/midterm# make
+cc -O2 -Wall -Wextra -std=gnu99 -o part1 part1.c -lrt
+cc -O2 -Wall -Wextra -std=gnu99 -o part2 part2.c -lrt
+cc -O2 -Wall -Wextra -std=gnu99 -o part3 part3.c -lrt
+cc -O2 -Wall -Wextra -std=gnu99 -o part4 part4.c -lrt
+cc -O2 -Wall -Wextra -std=gnu99 -o part5 part5.c -lrt
+cc -O2 -Wall -Wextra -std=gnu99 -o part6 part6.c -lrt
+make -C "/lib/modules/3.18.0/build" M="/home/root/midterm" modules
+make[1]: Entering directory `/usr/src/3.18.0'
+  CC [M]  /home/root/midterm/video.o
+  CC [M]  /home/root/midterm/key_sw.o
+  Building modules, stage 2.
+  MODPOST 2 modules
+  CC [M]  /home/root/midterm/key_sw.mod.o
+  LD [M]  /home/root/midterm/key_sw.ko
+  CC [M]  /home/root/midterm/video.mod.o
+  LD [M]  /home/root/midterm/video.ko
+make[1]: Leaving directory `/usr/src/3.18.0'
+
+This transcript records the original native build. The subsequent correction
+changed the BS status-field extraction from shift 2 to shift 8. The source in
+this repository includes that correction and additional explanatory comments.

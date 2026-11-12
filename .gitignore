@@ -1,0 +1,23 @@
+# Native user executables
+/part1
+/part2
+/part3
+/part4
+/part5
+/part6
+
+# Linux external-module build products
+*.o
+*.ko
+*.mod
+*.mod.c
+*.cmd
+Module.symvers
+modules.order
+.tmp_versions/
+
+# Editor and host artifacts
+*~
+*.swp
+.DS_Store
+Thumbs.db
