@@ -102,15 +102,33 @@ static void finish_memory_writes(void)
 #endif
 }
 
+static int save_pcm(const char *path, const int16_t *samples, size_t count)
+{
+    FILE *file = fopen(path, "wb");
+    if (!file) {
+        perror(path);
+        return 1;
+    }
+    int ok = fwrite(samples, sizeof(*samples), count, file) == count;
+    if (fclose(file) != 0)
+        ok = 0;
+    if (!ok)
+        fprintf(stderr, "Could not write PCM to %s\n", path);
+    return !ok;
+}
+
 int main(int argc, char **argv)
 {
     static int16_t input[FIR_SAMPLES], cpu[FIR_SAMPLES], fpga[FIR_SAMPLES];
     const size_t bytes = sizeof(input);
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s mixed.s16le\n", argv[0]);
+    const int reference_only = argc == 4 && strcmp(argv[1], "--reference") == 0;
+    if (argc != 2 && argc != 4) {
+        fprintf(stderr, "Usage: %s input.s16le [arm.s16le fpga.s16le]\n"
+                        "       %s --reference input.s16le output.s16le\n",
+                argv[0], argv[0]);
         return 1;
     }
-    FILE *clip = fopen(argv[1], "rb");
+    FILE *clip = fopen(argv[reference_only ? 2 : 1], "rb");
     if (!clip) {
         perror("open clip");
         return 1;
@@ -121,6 +139,17 @@ int main(int argc, char **argv)
     if (!clip_ok) {
         fprintf(stderr, "Expected exactly %zu bytes of signed little-endian PCM\n", bytes);
         return 1;
+    }
+
+    if (reference_only) {
+        double start = now_ms();
+        fir_reference(input, cpu, FIR_SAMPLES);
+        double elapsed = now_ms() - start;
+        if (save_pcm(argv[3], cpu, FIR_SAMPLES))
+            return 1;
+        printf("CPU reference              %.3f ms (%d samples)\n",
+               elapsed, FIR_SAMPLES);
+        return 0;
     }
 
     int mem = open("/dev/mem", O_RDWR | O_SYNC);
@@ -227,6 +256,11 @@ int main(int argc, char **argv)
     printf("CPU minus FPGA             %.3f ms\n", cpu_ms - fpga_ms);
     printf("CPU / FPGA                 %.3fx\n", cpu_ms / fpga_ms);
     result = 0;
+    if (argc == 4) {
+        int arm_error = save_pcm(argv[2], cpu, FIR_SAMPLES);
+        int fpga_error = save_pcm(argv[3], fpga, FIR_SAMPLES);
+        result = arm_error || fpga_error;
+    }
 
 cleanup:
     if (value_fd >= 0)

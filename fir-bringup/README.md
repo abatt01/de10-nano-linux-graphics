@@ -5,3 +5,6 @@ A 128-tap low-pass FIR for signed 16-bit PCM. The Cyclone V FPGA reads samples f
 [Build, validate, run on the board, and restore the prior FPGA image](fir128/README.md).
 
 The project includes the FIR RTL, ARM runner, deterministic audio fixture generator, integer reference, RTL testbench, and device-tree overlay. The FPGA build uses Terasic's Revision E System CD as an external dependency.
+
+The [living project report](docs/guitar-fir-report.pdf) records the system design,
+validation evidence, and hardware bring-up status.

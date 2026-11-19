@@ -134,3 +134,38 @@ scp -o StrictHostKeyChecking=yes \
     "$TARGET:$STAGE/board-result.log" "$TARGET:$STAGE/irq-before.log" \
     "$TARGET:$STAGE/irq-after.log" build/
 ```
+
+## Guitar clips
+
+The board accepts one 16,384-frame window (341.3 ms at 48 kHz). Export a mono,
+16-bit PCM WAV at 48 kHz from your recorder or audio editor, then select a
+window by its starting frame. A generated guitar-style pluck is available as
+a reproducible test fixture.
+
+```sh
+mkdir -p build/guitar
+python3 guitar.py demo build/guitar/demo.wav
+python3 guitar.py prepare build/guitar/demo.wav build/guitar/input.s16le
+# For a recording, use its WAV path and optionally add --offset 4800.
+gcc -std=c11 -Wall -Wextra -Werror -O2 fir128_test.c -o build/fir128_test_host
+build/fir128_test_host --reference build/guitar/input.s16le build/guitar/reference.s16le
+./validate.sh build/guitar/input.s16le build/guitar/reference.s16le
+python3 guitar.py wrap build/guitar/reference.s16le build/guitar/reference.wav
+```
+
+To measure the reference on ARM without touching the current overlay, copy
+`fir128_test.c`, `reference.h`, `coeff.inc`, and `input.s16le` to a board
+staging directory. In that directory, compile and run the reference.
+
+```sh
+gcc -std=c11 -Wall -Wextra -Werror -O2 fir128_test.c -o fir128_test
+./fir128_test --reference input.s16le arm.s16le
+```
+
+Once the FIR overlay is loaded and the buffer preflight passes, use the
+comparison mode. This writes raw output files after the timed comparison.
+Copy them back to the host and use `guitar.py wrap` to listen to either result.
+
+```sh
+./fir128_test input.s16le arm.s16le fpga.s16le
+```
