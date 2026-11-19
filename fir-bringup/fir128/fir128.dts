@@ -1,0 +1,29 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    fragment@0 {
+        target-path = "/soc/base-fpga-region";
+
+        __overlay__ {
+            firmware-name = "fir128.rbf";
+            fpga-bridges = <&fpga_bridge0>, <&fpga_bridge1>, <&fpga_bridge2>;
+
+            #address-cells = <2>;
+            #size-cells = <1>;
+            ranges = <0 0 0xc0000000 0x20000000>,
+                     <1 0 0xff200000 0x00200000>;
+
+            fir128: gpio@100040000 {
+                compatible = "altr,pio-1.0";
+                reg = <1 0x00040000 0x40>;
+                interrupt-parent = <&intc>;
+                interrupts = <0 48 4>;
+                altr,ngpio = <1>;
+                altr,interrupt-type = <1>;
+                #gpio-cells = <2>;
+                gpio-controller;
+            };
+        };
+    };
+};

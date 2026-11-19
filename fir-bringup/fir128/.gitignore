@@ -1,0 +1,4 @@
+/build/
+/board-state.log
+/mixed.s16le
+/expected.s16le
