@@ -63,7 +63,7 @@ Verify the board boots Linux with FPGA manager, configfs device-tree overlays, G
 
 These steps assume the active configfs slot is `array_sum` with `path=array_sum.dtbo`, the manager reports `operating`, and the original DTBO and RBF are still installed. Verify these conditions and record the original file hashes before proceeding. Adapt the procedure to the actual overlay loading mechanism if the preflight differs.
 
-After approval, stage the files from **Ubuntu**. Use the confirmed board SSH account and hostname.
+Stage the files from **Ubuntu** using the verified SSH target. If the board lacks an SFTP subsystem, use `scp -O` with a current OpenSSH client.
 
 ```sh
 set -e
@@ -127,4 +127,10 @@ After restoration, verify the tutorial ID `0x53554d31` at CSR offset `0x2c` and 
 
 ## Result
 
-The runner reports ARM and FPGA elapsed times, speedup, and a sample-by-sample comparison. Copy `board-result.log` and the before/after IRQ logs from the staging directory to the host to keep a record.
+The runner reports ARM and FPGA elapsed times, speedup, and a sample-by-sample comparison. Back in the original Ubuntu shell, copy the result and IRQ logs into the local build directory.
+
+```sh
+scp -o StrictHostKeyChecking=yes \
+    "$TARGET:$STAGE/board-result.log" "$TARGET:$STAGE/irq-before.log" \
+    "$TARGET:$STAGE/irq-after.log" build/
+```
