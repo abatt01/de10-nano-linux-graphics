@@ -91,7 +91,8 @@ sha256sum -c firmware.sha256
 sha256sum -c clip.sha256
 gcc -Wall -Wextra -Werror -std=c11 -O2 fir128_test.c -o fir128_test
 gcc -Wall -Wextra -O2 -D_FILE_OFFSET_BITS=64 fpga_irqs_off.c -o fpga_irqs_off
-install -m 0644 fir128.rbf fir128.dtbo /lib/firmware/
+cp fir128.rbf fir128.dtbo /lib/firmware/
+chmod 0644 /lib/firmware/fir128.rbf /lib/firmware/fir128.dtbo
 cat /proc/interrupts > irq-before.log
 rmdir "$OV/array_sum"
 ./fpga_irqs_off
@@ -169,3 +170,44 @@ Copy them back to the host and use `guitar.py wrap` to listen to either result.
 ```sh
 ./fir128_test input.s16le arm.s16le fpga.s16le
 ```
+
+## Stock FFT baseline
+
+The factory setup loads the stock RBF from the boot partition before Linux
+starts. Linux then applies `de10-nano.dtbo` through
+`de10-nano-fpga-init.service`. Before using this baseline, verify both stock
+files and confirm that the boot service is enabled. Keep a working serial
+console available, disconnect external JTAG, and schedule interruption of the
+FPGA-backed desktop and FFT services.
+
+After staging and verifying the FIR files as above, use the following stock
+overlay teardown in place of the `array_sum` removal. Run from the board
+staging directory as root after compiling `fpga_irqs_off`.
+
+```sh
+set -eu
+OV=/sys/kernel/config/device-tree/overlays
+test "$(ls -A "$OV")" = de10-nano.dtbo
+test "$(cat "$OV/de10-nano.dtbo/status")" = applied
+systemctl stop de10-nano-xfce-init.service de10-nano-fpga-leds.service de10-nano-fftsw-init.service
+if [ -d /sys/module/fft_driver ]; then rmmod fft_driver; fi
+test ! -d /sys/module/fft_driver
+for driver in leds-gpio gpio-keys; do
+    case "$driver" in leds-gpio) name=leds ;; gpio-keys) name=keys ;; esac
+    base=/sys/bus/platform/drivers/$driver
+    device=soc:base-fpga-region:$name
+    if [ -L "$base/$device" ]; then printf '%s' "$device" > "$base/unbind"; fi
+done
+rmdir "$OV/de10-nano.dtbo"
+./fpga_irqs_off
+```
+
+Apply and verify the FIR overlay, then run the comparison once. Save the
+comparison log and PCM files off the board before rebooting. Reboot to restore
+the stock bitstream and overlay, then confirm the stock overlay is applied, the
+FPGA manager is operating, and the stock FPGA LED devices have returned.
+
+The first live guitar-style run matched all 16,384 samples. The ARM took
+22.968 ms and the FPGA end-to-end path took 47.828 ms. See the
+[project report](../docs/guitar-fir-report.pdf) and
+[terminal output](../docs/guitar-fir-terminal.png).

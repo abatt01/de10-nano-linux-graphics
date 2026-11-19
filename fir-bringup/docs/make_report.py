@@ -24,8 +24,8 @@ def font(name, size):
 
 def terminal(path):
     lines = [
-        ("ARM Cortex-A9 | DE10-Nano", TEAL),
-        *[(line, FG) for line in (RUN / "arm-run.log").read_text().splitlines()],
+        ("Live comparison | DE10-Nano Cortex-A9 and Cyclone V", TEAL),
+        *[(line, FG) for line in (RUN / "board-result.log").read_text().splitlines()],
         ("", FG),
         ("FPGA RTL simulation | ARM output used as expected samples", TEAL),
         *[(line, FG) for line in (RUN / "guitar-validation.log").read_text().splitlines()],
@@ -49,7 +49,7 @@ def waveform(path):
     draw.text((27, 62), "Same PCM amplitude scale for both waveforms", font=font("", 18), fill=MUTED)
     for index, (name, title, color) in enumerate((
         ("input.s16le", "Unfiltered input", "#89b7ff"),
-        ("arm.s16le", "Filtered output captured on the ARM", TEAL),
+        ("fpga-live.s16le", "Filtered output captured on the FPGA (identical to ARM)", TEAL),
     )):
         samples = read_pcm(name)[:3840]
         y = 111 + index * 187
@@ -79,9 +79,9 @@ def make_pdf(output, terminal_path, waveform_path):
     styles["Title"].textColor = colors.HexColor("#112a42")
     styles["Heading2"].textColor = colors.HexColor("#0c685c")
     styles["BodyText"].leading = 15
-    arm = next(line for line in (RUN / "arm-run.log").read_text().splitlines()
-               if line.startswith("CPU reference")).split()
-    timing = " ".join(arm[2:4])
+    result = (RUN / "board-result.log").read_text().splitlines()
+    arm_time = next(line.split()[-2] for line in result if line.startswith("ARM CPU"))
+    fpga_time = next(line.split()[-2] for line in result if line.startswith("FPGA end-to-end"))
     story = []
 
     def add(text, style="BodyText"):
@@ -105,27 +105,34 @@ def make_pdf(output, terminal_path, waveform_path):
         "The Cyclone V RTL uses one MAC, a signed 48-bit accumulator, and HPS DDR staging via "
         "the FPGA-to-HPS bridge. Linux configures the engine through the lightweight bridge and "
         "waits for an interrupt raised after the final downstream AXI write response.")
-    add("Validation completed", "Heading2")
-    add(f"One real Cortex-A9 run filtered the generated guitar-style clip in <b>{timing}</b>. "
-        "Its output matched the host reference byte-for-byte. The RTL simulator matched all "
-        "16,384 ARM samples and checked DDR bounds and order, backpressure, and interrupt completion. "
-        "The two-tone regression also passed.")
+    add("Live comparison", "Heading2")
+    add(f"All <b>16,384 samples matched</b> on the physical board. The ARM took "
+        f"<b>{arm_time} ms</b> and the FPGA took <b>{fpga_time} ms end to end</b>. "
+        "The current FPGA path was slower for this clip. An earlier ARM-only run "
+        "matched the host reference byte-for-byte, and the FPGA RTL simulation "
+        "matched that output and passed the DDR and interrupt checks.")
     figure(terminal_path)
-    add("Hardware comparison pending", "Heading2")
-    add("The board has a pre-existing FFT DMA overlay. Its matching FPGA rollback image and "
-        "exclusive use of both FIR DDR buffers have yet to be verified. The FPGA hardware time "
-        "and ARM-to-FPGA speedup remain unmeasured.")
+    add("Stock FPGA recovery", "Heading2")
+    restored = RUN / "stock-restored.log"
+    if restored.exists() and "fpga_led7" in restored.read_text():
+        add("After reboot, SSH confirmed the stock overlay was applied, the FPGA manager "
+            "was operating, and all eight stock FPGA LEDs were present.")
+    else:
+        add("A reboot was requested after saving the results to restore the stock FFT and "
+            "GPIO design. Verification is pending USB reconnection.")
+
     story.append(PageBreak())
     add("Output waveform", "Title")
     add("The input is a generated guitar-style E minor pluck. Use the same run path with a "
         "recorded guitar WAV to validate a real performance.")
     story.append(Spacer(1, 14))
     figure(waveform_path)
-    add("What the hardware run will measure", "Heading2")
-    add("Run the same clip once on the ARM and the loaded FPGA. The ARM time covers C filtering. "
-        "The FPGA end-to-end time covers DDR staging, register programming, the IRQ wait, "
-        "and copying the output to userspace. The runner compares outputs sample by sample "
-        "and can save both PCM streams.")
+    add("What the timing covers", "Heading2")
+    add("The ARM time covers C filtering. The FPGA end-to-end time includes DDR staging, "
+        "register programming, the IRQ wait, and copying the output to userspace. "
+        "The reported ratio is ARM time divided by FPGA time for one run. "
+        "The experiment timed the whole FPGA path, so the data cannot isolate the "
+        "contribution of any individual stage.")
     add("Reproduce", "Heading2")
     add('See <link href="https://github.com/abatt01/de10-nano-linux-graphics/blob/fir-bringup/fir-bringup/fir128/README.md" '
         'color="#0c685c">the run guide</link> for fixture generation, host and RTL validation, '

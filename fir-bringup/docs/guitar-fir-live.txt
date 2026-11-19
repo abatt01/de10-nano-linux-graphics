@@ -1,0 +1,5 @@
+MATCH (16384 samples, one on-board timing pair)
+ARM CPU                    22.968 ms
+FPGA end-to-end            47.828 ms
+CPU minus FPGA             -24.860 ms
+CPU / FPGA                 0.480x
